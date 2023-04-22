@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>My Heart</title>
+  </head>
+  <body>
+    <div class="main">
+      <canvas id="Heart" width="1000" height="1000"></canvas>
+      <canvas id="Drop" width="1000" height="1000"></canvas>
+    </div>
+  </body>
+</html>
+<script>
+  var canvas = document.getElementById("Heart");
+  var context = canvas.getContext("2d");
+  const absoluteX = document.getElementById("Heart").clientWidth / 2;
+  const absoluteY = document.getElementById("Heart").clientHeight / 2;
+  context.translate(absoluteX, absoluteY);
+
+  //心形曲线
+  class Heart {
+    constructor(size) {
+      this.size = size;
+      this.x = 0;
+      this.y = 0;
+      this.color = "yellow";
+      this.pointArr = [];
+      this.radianBegin = 0;
+      this.radianFinish = Math.PI * 2; //360度
+      //类似割圆法，越小割的越多，曲线越好
+      this.radianIncrease = 0.0001;
+      var cutTimes = Math.ceil(this.radianFinish / this.radianIncrease);
+      for (let i = 0; i <= cutTimes; i++) {
+        // x=16 * (sin(t)) ^ 3;
+        let x = 16 * Math.pow(Math.sin(this.radianBegin), 3);
+        // y=13 * cos(t) - 5 * cos(2 * t) - 2 * cos(3 * t) - cos(4 * t)
+        let y =
+          13 * Math.cos(this.radianBegin) -
+          5 * Math.cos(2 * this.radianBegin) -
+          2 * Math.cos(3 * this.radianBegin) -
+          Math.cos(4 * this.radianBegin);
+        this.radianBegin += this.radianIncrease;
+        this.pointArr.push([x * this.size, -y * this.size]);
+      }
+    }
+  }
+  //星星
+  class Star {
+    constructor(x, y) {
+      this.x = x;
+      this.y = y;
+      this.color = "red";
+    }
+    draw() {
+      let size = Math.floor(Math.random() * 2) + 2;
+      context.save();
+      context.beginPath();
+      context.translate(this.x, this.y);
+      context.moveTo(size, 0);
+      for (var i = 0; i < 9; i++) {
+        context.rotate(Math.PI / 5);
+        if (i % 2 == 0) {
+          context.lineTo((size / 0.525731) * 0.200811, 0);
+        } else {
+          context.lineTo(size, 0);
+        }
+      }
+      context.closePath();
+      context.fillStyle = this.color;
+      context.fill();
+      context.restore();
+    }
+    drawForDrop() {
+      let size = 5;
+      contextOfDrop.save();
+      contextOfDrop.beginPath();
+      contextOfDrop.translate(this.x, this.y);
+      contextOfDrop.moveTo(size, 0);
+      for (var i = 0; i < 9; i++) {
+        contextOfDrop.rotate(Math.PI / 5);
+        if (i % 2 == 0) {
+          contextOfDrop.lineTo((size / 0.525731) * 0.200811, 0);
+        } else {
+          contextOfDrop.lineTo(size, 0);
+        }
+      }
+      contextOfDrop.closePath();
+      contextOfDrop.fillStyle = this.color;
+      contextOfDrop.fill();
+      contextOfDrop.restore();
+    }
+  }
+
+  class StarGroup {
+    constructor(heartLines, index) {
+      this.heartLines = heartLines;
+      this.stars = new Array();
+      this.index = index;
+    }
+  }
+  class StarDrop {
+    constructor(velocity, beginHeight) {
+      this.velocity = velocity;
+      this.height = beginHeight;
+      this.stars = generateStarDrops(beginHeight, 5, 5);
+    }
+    draw() {
+      this.stars.forEach((star) => {
+        star.drawForDrop();
+        star.y += this.velocity;
+      });
+      this.height += this.velocity;
+    }
+  }
+  //获取两值之间的随机数
+  function getLimitedRandom(min, max) {
+    return Math.random() * (max - min) + min;
+  }
+  function drawAllElements(
+    starGroup,
+    starExterGroup,
+    starDropGroup,
+    beginHeight,
+    state,
+    heartbeat
+  ) {
+    return function () {
+      contextOfDrop.clearRect(-100, 0, 200, 1000);
+      starDropGroup.forEach((starDrop) => {
+        starDrop.draw();
+      });
+      if (
+        starDropGroup.some((ele) => {
+          ele.height > 600;
+        })
+      ) {
+        starDropGroup.splice(0, 1);
+      }
+      if (state === 0) {
+        heartbeat.play();
+        var starDrop = new StarDrop(velocity, beginHeight);
+        starDropGroup.push(starDrop);
+        context.clearRect(
+          -canvas.width,
+          -canvas.height,
+          2 * canvas.width,
+          2 * canvas.height
+        );
+        //inter
+        starGroup.stars = generateInterStarGroup(starGroup.heartLines);
+        starGroup.stars.forEach((star) => {
+          star.draw();
+        });
+        //exter
+        starExterGroup.stars = generateExterStarGroup(
+          starExterGroup.heartLines
+        );
+        starExterGroup.stars.forEach((star) => {
+          star.draw();
+        });
+        //inter
+        var heartLinesTemp1 = new Array();
+        starGroup.heartLines.forEach((heartLine) => {
+          let heartLineTemp = new Heart(heartLine.size / starGroup.index);
+          heartLinesTemp1.push(heartLineTemp);
+        });
+        starGroup.heartLines = heartLinesTemp1;
+        //exter
+        var heartLinesTemp2 = new Array();
+        starExterGroup.heartLines.forEach((heartLine) => {
+          let heartLineTemp = new Heart(heartLine.size * starExterGroup.index);
+          heartLinesTemp2.push(heartLineTemp);
+        });
+        starExterGroup.heartLines = heartLinesTemp2;
+      }
+      if (state === 1) {
+        context.clearRect(
+          -canvas.width,
+          -canvas.height,
+          2 * canvas.width,
+          2 * canvas.height
+        );
+        //inter
+        starGroup.stars = generateInterStarGroup(starGroup.heartLines);
+        starGroup.stars.forEach((star) => {
+          star.draw();
+        });
+        //exter
+        starExterGroup.stars = generateExterStarGroup(
+          starExterGroup.heartLines
+        );
+        starExterGroup.stars.forEach((star) => {
+          star.draw();
+        });
+        //inter
+        var heartLinesTemp1 = new Array();
+        starGroup.heartLines.forEach((heartLine) => {
+          let heartLineTemp = new Heart(heartLine.size * starGroup.index);
+          heartLinesTemp1.push(heartLineTemp);
+        });
+        starGroup.heartLines = heartLinesTemp1;
+        //exter
+        var heartLinesTemp2 = new Array();
+        starExterGroup.heartLines.forEach((heartLine) => {
+          let heartLineTemp = new Heart(heartLine.size / starExterGroup.index);
+          heartLinesTemp2.push(heartLineTemp);
+        });
+        starExterGroup.heartLines = heartLinesTemp2;
+      }
+      state = (state + 1) % 11;
+      setTimeout(
+        drawAllElements(
+          starGroup,
+          starExterGroup,
+          starDropGroup,
+          beginHeight,
+          state,
+          heartbeat
+        ),
+        50
+      );
+    };
+  }
+
+  //生成一个区域星星的坐标
+  function generateStars(heartLine, radianIncrease) {
+    const interval = 10000 * radianIncrease;
+    var stars = new Array();
+    const cutTimes = Math.ceil((Math.PI * 2) / radianIncrease);
+    for (let i = 0; i < cutTimes; i++) {
+      let x = heartLine.pointArr[i * interval][0] - 5 + Math.random() * 10;
+      let y = heartLine.pointArr[i * interval][1] - 5 + Math.random() * 10;
+      let star = new Star(x, y);
+      stars.push(star);
+    }
+    return stars;
+  }
+  function generateInterStarGroup(interHeartLines) {
+    var starsGroup = new Array();
+    var stars;
+    stars = generateStars(interHeartLines[16], 0.005);
+    starsGroup = starsGroup.concat(stars);
+    stars = generateStars(interHeartLines[17], 0.01);
+    starsGroup = starsGroup.concat(stars);
+    stars = generateStars(interHeartLines[15], 0.01);
+    starsGroup = starsGroup.concat(stars);
+    stars = generateStars(interHeartLines[14], 0.01);
+    starsGroup = starsGroup.concat(stars);
+    stars = generateStars(interHeartLines[13], 0.025);
+    starsGroup = starsGroup.concat(stars);
+    stars = generateStars(interHeartLines[12], 0.025);
+    starsGroup = starsGroup.concat(stars);
+    stars = generateStars(interHeartLines[11], 0.05);
+    starsGroup = starsGroup.concat(stars);
+    stars = generateStars(interHeartLines[10], 0.075);
+    starsGroup = starsGroup.concat(stars);
+    stars = generateStars(interHeartLines[9], 0.125);
+    starsGroup = starsGroup.concat(stars);
+    stars = generateStars(interHeartLines[8], 0.125);
+    starsGroup = starsGroup.concat(stars);
+    stars = generateStars(interHeartLines[7], 0.25);
+    starsGroup = starsGroup.concat(stars);
+    stars = generateStars(interHeartLines[6], 0.375);
+    starsGroup = starsGroup.concat(stars);
+    stars = generateStars(interHeartLines[5], 0.5);
+    starsGroup = starsGroup.concat(stars);
+    stars = generateStars(interHeartLines[4], 0.25);
+    starsGroup = starsGroup.concat(stars);
+    stars = generateStars(interHeartLines[3], 0.375);
+    starsGroup = starsGroup.concat(stars);
+    stars = generateStars(interHeartLines[2], 0.5);
+    starsGroup = starsGroup.concat(stars);
+    stars = generateStars(interHeartLines[1], 0.625);
+    starsGroup = starsGroup.concat(stars);
+    stars = generateStars(interHeartLines[0], 0.75);
+    starsGroup = starsGroup.concat(stars);
+    return starsGroup;
+  }
+  function generateExterStarGroup(exterHeartLines) {
+    var starsGroup = new Array();
+    var stars;
+    stars = generateStars(exterHeartLines[0], 0.125);
+    starsGroup = starsGroup.concat(stars);
+    stars = generateStars(exterHeartLines[1], 0.5);
+    starsGroup = starsGroup.concat(stars);
+    stars = generateStars(exterHeartLines[2], 0.125);
+    starsGroup = starsGroup.concat(stars);
+    stars = generateStars(exterHeartLines[3], 0.1);
+    starsGroup = starsGroup.concat(stars);
+    stars = generateStars(exterHeartLines[4], 0.05);
+    starsGroup = starsGroup.concat(stars);
+    stars = generateStars(exterHeartLines[5], 0.025);
+    starsGroup = starsGroup.concat(stars);
+    stars = generateStars(exterHeartLines[6], 0.05);
+    starsGroup = starsGroup.concat(stars);
+    stars = generateStars(exterHeartLines[7], 0.5);
+    starsGroup = starsGroup.concat(stars);
+
+    return starsGroup;
+  }
+  const velocity = 50;
+  const dropNum = 10;
+  function generateStarDrops(beginHeight, internalX, internalY) {
+    var stars = new Array();
+    var star;
+    star = new Star(0, beginHeight);
+    stars.push(star);
+    for (let i = -1; i < 2; i++) {
+      star = new Star(i * internalX, beginHeight + internalY);
+      stars.push(star);
+    }
+    for (let i = -1; i < 2; i++) {
+      star = new Star(i * internalX, beginHeight + internalY * 2);
+      stars.push(star);
+    }
+    for (let i = -2; i < 3; i++) {
+      star = new Star(i * internalX, beginHeight + internalY * 3);
+      stars.push(star);
+    }
+    for (let i = -1; i < 2; i++) {
+      star = new Star(i * internalX, beginHeight + internalY * 4);
+      stars.push(star);
+    }
+    star = new Star(0, beginHeight + internalY * 5);
+    stars.push(star);
+    return stars;
+  }
+  /*-------------------------------------------------------------------*/
+
+  var interHeartLines = new Array();
+  for (let i = 1; i < 12; ) {
+    var heart = new Heart(i);
+    interHeartLines.push(heart);
+    i += 0.5;
+  }
+  var interStarGroup = new StarGroup(interHeartLines, 1.1);
+
+  var exterHeartLines = new Array();
+  for (let i = 8.5; i < 12.5; ) {
+    var heart = new Heart(i);
+    exterHeartLines.push(heart);
+    i += 0.5;
+  }
+  var exterStarGroup = new StarGroup(exterHeartLines, 1.05);
+
+  /*-------------------------------------------------------------------*/
+  var canvasOfDrop = document.getElementById("Drop");
+  var contextOfDrop = canvasOfDrop.getContext("2d");
+  contextOfDrop.translate(absoluteX, absoluteY);
+  let interHeartLineForDrop = interHeartLines[17].pointArr;
+  interHeartLineForDrop.sort((a, b) => {
+    return b[1] - a[1];
+  });
+  var dropBeginHeight = interHeartLineForDrop[0][1];
+  var starDrop = new StarDrop(velocity, dropBeginHeight);
+  var starDropGroup = new Array();
+  starDropGroup.push(starDrop);
+  const heartbeat = new Audio("heartbeat.wav");
+  setTimeout(
+    drawAllElements(
+      interStarGroup,
+      exterStarGroup,
+      starDropGroup,
+      dropBeginHeight,
+      0,
+      heartbeat
+    ),
+    100
+  );
+</script>
+
+<style>
+  body {
+    background-color: black;
+  }
+  canvas {
+    height: 50vw;
+    width: 50vw;
+    margin-left: 25%;
+    position: absolute;
+  }
+  #Drop {
+    top: 0;
+  }
+</style>
